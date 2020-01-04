@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"time"
 )
@@ -39,20 +40,33 @@ func (m *manager) start(name string) {
 }
 
 func (m *manager) ps(pattern string) {
-	const format = "%4v %5v %s\n"
-	fmt.Printf(format, "id", "took", "name")
+	r, err := func() (*regexp.Regexp, error) {
+		if pattern == "" {
+			return nil, nil
+		}
+		r, err := regexp.Compile(pattern)
+		return r, err
+	}()
+	if err != nil {
+		sup.Println(err)
+		return
+	}
+	fmt.Println("  id      took name")
 	var total time.Duration
 	for i, name := range m.names {
+		if r != nil && !r.MatchString(name) {
+			continue
+		}
 		d := m.tooks[i]
 		if i == m.c {
 			d += time.Now().Sub(m.t)
 		}
 		total += d
 		d = d.Truncate(config.td)
-		fmt.Printf(format, i, d, name)
+		fmt.Printf("%4d %9v %s\n", i, d, name)
 	}
 	total = total.Truncate(config.td)
-	fmt.Printf("     %5v\n", total)
+	fmt.Printf("     %9v\n", total)
 }
 
 func (m *manager) fixname(s string) {
