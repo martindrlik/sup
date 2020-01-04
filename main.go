@@ -56,8 +56,8 @@ func firstWord(s string) (first, rest string) {
 }
 
 func help(string) {
-	fmt.Println("start name   starts new or resumes existing task")
-	fmt.Println("ps [pattern] prints tasks filtered by pattern")
+	fmt.Println("start name starts new or resumes existing task")
+	fmt.Println("ps pattern prints tasks filtered by regexp pattern")
 	fmt.Println("fixname i name sets i-th task name to name")
 	fmt.Println("truncate d (for printing) rounds durations toward zero to a multiple of d")
 }
