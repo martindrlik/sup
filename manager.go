@@ -61,11 +61,11 @@ func (m *manager) ps(pattern string) {
 		if i == m.c {
 			d += time.Now().Sub(m.t)
 		}
-		total += d
 		d = d.Truncate(config.td)
 		fmt.Printf("%4d %9v %s\n", i, d, name)
+		total += d
+
 	}
-	total = total.Truncate(config.td)
 	fmt.Printf("     %9v\n", total)
 }
 
