@@ -5,68 +5,127 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
-var config = struct {
-	td time.Duration
-}{
-	td: time.Second,
-}
-
-var cmds = map[string]func(string){
-	"start":   m.start,
-	"ps":      m.ps,
-	"fixname": m.fixname,
-
-	"truncate": truncate,
-
-	"help": help,
-}
-
 var (
+	now = time.Now
 	sup = log.New(os.Stdout, "sup: ", 0)
-	m   = newManager()
 )
 
+var config = struct {
+	truncate time.Duration
+}{
+	truncate: time.Second,
+}
+
 func main() {
-	r := bufio.NewReader(os.Stdin)
+	r := bufio.NewReader(os.Stdout)
 	for {
-		line, err := r.ReadString('\n')
+		s, err := r.ReadString('\n')
 		if err != nil {
 			sup.Fatal(err)
 		}
-		line = strings.TrimSpace(line)
-		s, arg := firstWord(line)
-		if cmd, ok := cmds[s]; ok {
-			cmd(arg)
+		s = strings.TrimSpace(s)
+		cmd, args := split2(s)
+		if proc, ok := commands[cmd]; ok {
+			proc(args)
 			continue
 		}
-		sup.Printf("unknown command: %s\n", s)
+		sup.Println("unknown:", s)
 	}
 }
 
-func firstWord(s string) (first, rest string) {
-	z := strings.SplitN(s, " ", 2)
-	if len(z) == 1 {
-		return z[0], ""
-	}
-	return z[0], z[1]
+var commands = map[string]func(string){
+	"start":   start,
+	"resume":  resume,
+	"ps":      list,
+	"fixname": fixname,
 }
 
-func help(string) {
-	fmt.Println("start name starts new or resumes existing task")
-	fmt.Println("ps pattern prints tasks filtered by regexp pattern")
-	fmt.Println("fixname i name sets i-th task name to name")
-	fmt.Println("truncate d (for printing) rounds durations toward zero to a multiple of d")
-}
+var (
+	mapping = map[string]int{}
 
-func truncate(s string) {
-	d, err := time.ParseDuration(s)
-	if err != nil {
-		sup.Println(err)
+	all []Task
+
+	current int
+	started time.Time
+)
+
+func start(name string) {
+	setStarted()
+	if i, ok := mapping[name]; ok {
+		current = i
 		return
 	}
-	config.td = d
+	current = len(all)
+	all = append(all, Task{Name: name})
+}
+
+func resume(s string) {
+	i, ok := index(s)
+	if !ok {
+		sup.Printf("no task found: %s", s)
+		return
+	}
+	setStarted()
+	current = i
+}
+
+func index(s string) (int, bool) {
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, false
+	}
+	if i < 0 {
+		i = len(all) + i
+	}
+	if i < 0 || i >= len(all) {
+		return 0, false
+	}
+	return i, true
+}
+
+func setStarted() {
+	t := now()
+	if len(all) > 0 {
+		task := all[current]
+		task.Took += t.Sub(started)
+		all[current] = task
+	}
+	started = t
+}
+
+func list(expr string) {
+	s := filter(expr)
+	for i, task := range s {
+		d := task.Took
+		if i == current {
+			d += now().Sub(started)
+		}
+		d = d.Truncate(config.truncate)
+		fmt.Printf("%2d %7v %s\n", i, d, task.Name)
+	}
+}
+
+func fixname(args string) {
+	s, name := split2(args)
+	i, ok := index(s)
+	if !ok {
+		sup.Printf("no task found: %s", args)
+		return
+	}
+	task := all[i]
+	task.Name = name
+	all[i] = task
+}
+
+func split2(s string) (string, string) {
+	r := strings.SplitN(s, " ", 2)
+	if len(r) == 1 {
+		return r[0], ""
+	}
+	return r[0], r[1]
 }

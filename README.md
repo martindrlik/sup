@@ -15,10 +15,8 @@ Command sup is another work tracking tool.
 start reading book
 start watching netflix
 ps
-  id      took name
-   0   1h30m0s reading book
-   1   1h20m0s watching netflix
-       2h50m0s
+ 0  1h30m0s reading book
+ 1  1h20m0s watching netflix
 start free time
 ```
 
